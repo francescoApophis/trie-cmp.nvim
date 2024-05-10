@@ -25,7 +25,7 @@ M.save_words_from_opened_buf = function(trie_root)
   if #new_buf_lines < 1 then return end  
 
   for i, line in ipairs(new_buf_lines) do 
-    for word in string.gmatch(line, "%w+%_-%w+") do 
+    for word in line:gmatch("[%_*%w*]*") do 
       if #word > 1 then  Trie.add_word(trie_root, word) end 
     end 
   end 
@@ -68,7 +68,6 @@ end
 M.get_word_start_col = function(curs_col, word_at_curs_len)
   if curs_col - word_at_curs_len < 0 then 
     return 0
-  -- read cmnt for 'i' key pressed in Normal mode in M.completion()
   elseif (curs_col - word_at_curs_len) == curs_col then  
     return curs_col - #M.get_word_at_curs(curs_col) 
   end 
@@ -79,7 +78,7 @@ end
 ---@return string word_at_curs
 M.get_word_at_curs = function(curs_col) 
   local curr_line_until_curs = string.sub(vim.api.nvim_get_current_line(), 1, curs_col)
-  return string.match(curr_line_until_curs, "%w+%_-%w+$") or ""
+  return curr_line_until_curs:match("[%_*%w*]*$") or ""
 end 
 
 ---@param key string 
@@ -110,9 +109,9 @@ end
 ---@param c_bufnr number 
 ---@param trie_root trie_node
 ---@param word_at_curs string 
----@param typed boolean If the user has typed any new letters
-M.handle_word_saving_key = function(c_bufnr, trie_root, word_at_curs, typed)
-  if not typed then 
+---@param valid_key_typed boolean If the user has typed any new letters
+M.handle_word_saving_key = function(c_bufnr, trie_root, word_at_curs, valid_key_typed)
+  if not valid_key_typed then 
     return 
   end 
   if #word_at_curs > 1 then 
@@ -151,11 +150,11 @@ M.completion = function(key, c_bufnr, state)
 
   if mode == "n" then 
     state.word_at_curs = ""
-    state.typed = false 
+    state.valid_key_typed = false 
     state.match_row = 0
     vim.api.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
 
-    -- get matches for the 'word_at_curs' (SUBSTR FROM curs_col TO FIRST NON-ALPHANUM CHAR!!!)
+    -- get matches for the 'word_at_curs' (substr from curs_col to first non-alphanum char)
     -- when entering Insert mode
     if key == "i" then 
       state.word_at_curs = M.get_word_at_curs(state.curs_col)
@@ -170,7 +169,7 @@ M.completion = function(key, c_bufnr, state)
   elseif mode == "i" then 
     if Keys.is_valid_key(key) then 
       state.word_at_curs = M.handle_valid_keys(key, c_bufnr, state.trie_root, state.word_at_curs, state.curs_col)
-      state.typed = true 
+      state.valid_key_typed = true 
       state.match_row = 0
       vim.schedule(function()
         state.curs_row, state.curs_col = unpack(vim.api.nvim_win_get_cursor(0))
@@ -181,13 +180,16 @@ M.completion = function(key, c_bufnr, state)
       state.match_row = 0
 
     elseif Keys.is_word_saving_key(key) then 
-      if key == Keys.RK.escape then 
-        state.typed = false
-      end 
-      
-      M.handle_word_saving_key(c_bufnr, state.trie_root, state.word_at_curs, state.typed) 
+      M.handle_word_saving_key(c_bufnr, state.trie_root, state.word_at_curs, state.valid_key_typed) 
+      state.valid_key_typed = false
       state.match_row = 0
       state.word_at_curs = ""
+
+      if key == Keys.RK.escape then 
+        vim.schedule(function()
+          state.curs_row, state.curs_col = unpack(vim.api.nvim_win_get_cursor(0))
+        end)
+      end 
 
     elseif key == Keys.RK.enter then 
       M.handle_match_insertion(c_bufnr, state.trie_root, state.word_at_curs, state.curs_row, state.curs_col, state.match_row)
