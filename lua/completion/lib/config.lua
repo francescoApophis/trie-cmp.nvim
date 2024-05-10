@@ -73,7 +73,7 @@ M.generate_completion_state = function()
     curs_col = 0,
     word_at_curs = "",
     trie_root = Trie:new_node(),
-    typed = false,
+    valid_key_typed = false,
   }
 end 
 
