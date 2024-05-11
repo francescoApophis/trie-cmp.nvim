@@ -18,7 +18,8 @@ will be saved in it. The Trie will be cleared once the completion is stopped.
 New words are saved in the Trie whenever spaces/indents or punctuation (besides *underscore*) are inserted or 
 Insert mode is exited **right after typing the words**.
 
-Move through the suggestion with **arrow-Up/Down**. 
+Move through the suggestion with **<arrow-Up/Down>**. Press **<Enter>** to insert suggestions in the current
+buffer.
 
 ***At the moment there is no customization available***
 
