@@ -81,6 +81,24 @@ M.get_word_at_curs = function(curs_col)
   return curr_line_until_curs:match("[%_*%w*]*$") or ""
 end 
 
+
+
+---@param key string 
+---@param curs_col number
+---@return number curs_col 
+M.get_new_curs_col_for_arrows_lr = function(key, curs_col)
+  curs_col = (key == Keys.RK.left and curs_col - 1) or (key == Keys.RK.right and curs_col + 1)
+  if curs_col < 0 then 
+    return  0 
+  end 
+
+  if curs_col >= vim.fn.strlen(vim.fn.getline(".")) then 
+    return vim.fn.strlen(vim.fn.getline("."))
+  end 
+  
+  return curs_col 
+end 
+
 ---@param key string 
 ---@param trie_root trie_node
 ---@param word_at_curs string 
@@ -202,6 +220,11 @@ M.completion = function(key, c_bufnr, state)
       vim.schedule(function()
         vim.api.nvim_win_set_cursor(0, {state.curs_row, state.curs_col})
       end)
+
+    elseif key == Keys.RK.left or key == Keys.RK.right then 
+      state.curs_col = M.get_new_curs_col_for_arrows_lr(key, state.curs_col)
+      state.word_at_curs = M.get_word_at_curs(state.curs_col)
+      M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
     end 
   end  
   Conf.highlight_match(c_bufnr, state.match_row)
