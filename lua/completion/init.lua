@@ -12,6 +12,7 @@ local state = Conf.generate_completion_state()
 -- vim.on_key removes the callback if it's nil.
 -- I know this is some ugly ass code but I haven't found a better ways 
 -- to do that.
+---@param key string Pressed key received from vim.on_key
 main = function(key)
   if not state.completion_on then
     main = nil 
@@ -22,7 +23,7 @@ main = function(key)
 end
 
 
-
+---@param comp_group_name string Name for autogroup
 M.activate_autocmds = function(comp_group_name)
   local comp_group = vim.api.nvim_create_augroup(comp_group_name, {clear = true})
   vim.api.nvim_create_autocmd('BufRead', {
@@ -42,7 +43,7 @@ M.activate_autocmds = function(comp_group_name)
 end 
 
 
-
+---@return nil 
 M.start_completion = function()
   if state.completion_on then 
     print('Completion already on')
@@ -62,6 +63,7 @@ M.start_completion = function()
 end 
 
 
+---@return nil 
 M.stop_completion = function()
   if not state.completion_on then 
     print('Completion already off')

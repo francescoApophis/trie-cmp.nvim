@@ -19,6 +19,9 @@ M.bg_hl = "phBG"
 M.s_hl = "phSHL"  
 
 
+
+---@param all_matches string[] All matches/suggestion found for a word
+---@return win_opts table Option of completion window with updated width and height values
 M.get_win_opts = function(all_matches)
   height = #all_matches
   table.sort(all_matches, function(a, b) return #a < #b end) 
@@ -35,6 +38,10 @@ M.get_win_opts = function(all_matches)
   } 
 end 
 
+---@param event string[] Event type triggered by neovim's autocmds
+---@c_winnr number | nil 
+---@c_bufnr number Number of the completion's buffer 
+---@return c_winnr | nil Number or handle of the completion's window. It's nil when the ewindow gets closed
 M.handle_win = function(event, c_winnr, c_bufnr)
   if event == "InsertLeave" and c_winnr then 
     vim.api.nvim_win_close(c_winnr, true) 
@@ -60,11 +67,13 @@ M.handle_win = function(event, c_winnr, c_bufnr)
   end 
 end
 
-
+---@param c_bufnr number Number or handle of the completion's buffer 
+---@param match_row Line of the currently selected match in the completion's buffer
 M.highlight_match = function(c_bufnr, match_row)
   vim.api.nvim_buf_add_highlight(c_bufnr, 0, M.s_hl, match_row, 0, -1) 
 end 
 
+---return table Return a new table to keep track of the completion's state 
 M.generate_completion_state = function()
   return {
     completion_on = false,

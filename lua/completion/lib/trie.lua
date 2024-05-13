@@ -1,6 +1,13 @@
----@meta Lua_Trie
 local M = {}
 
+---@alias trie_node
+---| '"char"' 
+---| '"children"' 
+---| '"last_char"' # Is the last character of the word
+
+
+---@param char string 
+---return trie_node trie_node
 M.new_node = function(self, char)
  o = {
    char = char or "",
@@ -23,9 +30,9 @@ M.str_to_arr = function(str)
   return arr 
 end 
 
----@param trie_node table 
----@param word string | string[]
----@param idx  number | nil
+---@param trie_node trie_node
+---@param word string | string[] Word to add to the Trie. Gets converted to arr for easier parsing
+---@param idx  number | nil Index of the current character parsed
 ---@return nil
 M.add_word = function(trie_node, word, idx)
   idx = idx or 1
@@ -52,7 +59,6 @@ M.add_word = function(trie_node, word, idx)
   end 
 
   if i == (#trie_node.children + 1) then 
-    -- new_node = {char = curr_char, children = {}, last_char = false}
     table.insert(trie_node.children, M:new_node(curr_char))
     M.add_word(trie_node.children[#trie_node.children], word, idx + 1 )
   end
@@ -60,10 +66,10 @@ end
 
 
 
----@param trie_node table
----@word string 
----@idx number | nil
----@return boolean | nil 
+---@param trie_node trie_node
+---@word string Word to delete from Trie
+---@idx number | nil Index of the current character parsed
+---@return boolean | nil If word has been deleted or not
 M.delete_full_word = function(trie_node, word, idx) 
   idx = idx or 1
   local char = word:sub(idx, idx)
@@ -102,10 +108,10 @@ M.delete_full_word = function(trie_node, word, idx)
 end 
 
 
----@param trie_node table
+---@param trie_node trie_node
 ---@param original_word string 
----@param idx number | nil 
----@return boolean | nil
+---@param idx number | nil Index of the current character parsed
+---@return boolean | nil If last character has been deleted or not 
 M.delete_last_char_from_word = function(trie_node, original_word, idx)
   idx = idx or 1 
   local char = original_word:sub(idx, idx)
@@ -147,10 +153,10 @@ M.delete_last_char_from_word = function(trie_node, original_word, idx)
   return nil 
 end 
 
----@param trie_node table
----@param pattern string
----@param all_matches string[] 
----@return string[] 
+---@param trie_node trie_node
+---@param pattern string Common prefix of all the sub-tries that branch from the current node
+---@param all_matches string[] All words present in Trie that match the given pattern
+---@return string[] | nil all_matches  
 M.dfs_and_stringify_matches = function(trie_node, pattern, all_matches)
   if trie_node.char == "" then 
     return 
@@ -172,11 +178,11 @@ M.dfs_and_stringify_matches = function(trie_node, pattern, all_matches)
 end 
 
 
----@param trie_node table 
----@param pattern string
+---@param trie_node trie_node 
+---@param pattern string Word prefix to be searched in the Trie
 ---@param pattern_arr string[] | nil 
----@param idx number | nil  
----@return string[] | nil
+---@param idx number | nil Index of the current character parsed
+---@return string[] all_matches | nil
 M.get_all_matches = function(trie_node, pattern, pattern_arr, idx)
   if #pattern < 1 then return end -- empty string
 
