@@ -129,6 +129,8 @@ end
 ---@param word_at_curs string 
 ---@param valid_key_typed boolean If the user has typed any new letters
 M.handle_word_saving_key = function(c_bufnr, trie_root, word_at_curs, valid_key_typed)
+  -- avoid saving current word_at_curs after having entered Insert mode on a word 
+  -- and exiting right away with Escape, a word_saving_key
   if not valid_key_typed then 
     return 
   end 
@@ -160,6 +162,23 @@ M.handle_match_insertion = function(c_bufnr, trie_root, word_at_curs, curs_row, 
 end 
 
 
+--- grab word/s have been deleted from the curr buffer from '"' register that
+--- and deleted from the Trie as well. Currently only if they got deleted through v/V-Line modes
+---@param trie_root trie_node
+---@return nil
+M.remove_deleted_words = function(trie_root)
+  vim.schedule(function()
+    local last_deleted = vim.fn.getreg('"'):gsub("\\n", "", 1)
+
+    for word in last_deleted:gmatch("[%_*%w*]*") do 
+      -- only if there is no other occurrence of the word in buffer
+      if vim.fn.search(word, "n") == 0 then 
+        Trie.delete_full_word(trie_root, word)
+      end
+    end 
+  end) 
+end 
+
 ---@param key string
 ---@param c_bufnr number 
 ---@param state table
@@ -182,6 +201,10 @@ M.completion = function(key, c_bufnr, state)
     vim.schedule(function()
       state.curs_row, state.curs_col = unpack(vim.api.nvim_win_get_cursor(0))
     end)
+
+
+  elseif mode == "v" or mode == "V" and key == "d" or key == "D" then 
+    M.remove_deleted_words(state.trie_root)
 
 
   elseif mode == "i" then 
