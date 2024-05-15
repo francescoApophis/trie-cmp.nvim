@@ -1,5 +1,11 @@
 local M = {}
 
+---@alias trie_node
+---| '"char"' 
+---| '"children"' 
+---| '"last_char"' # Is the last character of the word
+
+
 ---@param c_bufnr number 
 ---@param trie_root trie_node
 ---@param word_at_curs string 
@@ -30,6 +36,8 @@ M.save_words_from_opened_buf = function(trie_root)
     end 
   end 
 end 
+
+
 
 
 -- Enter key still has default mapping, so the text after cursor  
@@ -142,6 +150,7 @@ end
 
 
 
+
 ---@param c_bufnr number
 ---@param trie_root trie_node
 ---@param word_at_curs string 
@@ -171,7 +180,7 @@ M.remove_deleted_words = function(trie_root)
     local last_deleted = vim.fn.getreg('"'):gsub("\\n", "", 1)
 
     for word in last_deleted:gmatch("[%_*%w*]*") do 
-      -- only if there is no other occurrence of the word in buffer
+      -- only if there is no other occurrence of the word in curr buffer
       if vim.fn.search(word, "n") == 0 then 
         Trie.delete_full_word(trie_root, word)
       end
@@ -193,17 +202,17 @@ M.completion = function(key, c_bufnr, state)
 
     -- get matches for the 'word_at_curs' (substr from curs_col to first non-alphanum char)
     -- when entering Insert mode
-    if key == "i" then 
+    if key == "i" then
       state.word_at_curs = M.get_word_at_curs(state.curs_col)
       M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
-    end 
+    end
 
     vim.schedule(function()
       state.curs_row, state.curs_col = unpack(vim.api.nvim_win_get_cursor(0))
     end)
 
 
-  elseif mode == "v" or mode == "V" and key == "d" or key == "D" then 
+  elseif mode == "v" or mode == "V" and (key == "d" or key == "D") then 
     M.remove_deleted_words(state.trie_root)
 
 
@@ -250,6 +259,7 @@ M.completion = function(key, c_bufnr, state)
       M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
     end 
   end  
+
   Conf.highlight_match(c_bufnr, state.match_row)
 end 
 
