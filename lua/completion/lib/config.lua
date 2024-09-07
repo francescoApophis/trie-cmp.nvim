@@ -41,7 +41,7 @@ end
 ---@param event string[] Event type triggered by neovim's autocmds
 ---@c_winnr number | nil 
 ---@c_bufnr number Number of the completion's buffer 
----@return c_winnr | nil Number or handle of the completion's window. It's nil when the ewindow gets closed
+---@return c_winnr | nil Number or handle of the completion's window. It's nil when the window gets closed
 M.handle_win = function(event, c_winnr, c_bufnr)
   if event == "InsertLeave" and c_winnr then 
     vim.api.nvim_win_close(c_winnr, true) 
@@ -70,6 +70,9 @@ end
 ---@param c_bufnr number Number or handle of the completion's buffer 
 ---@param match_row Line of the currently selected match in the completion's buffer
 M.highlight_match = function(c_bufnr, match_row)
+  if match_row == -1 then 
+    return 
+  end
   vim.api.nvim_buf_add_highlight(c_bufnr, 0, M.s_hl, match_row, 0, -1) 
 end 
 
@@ -77,7 +80,7 @@ end
 M.generate_completion_state = function()
   return {
     completion_on = false,
-    match_row = 0,
+    match_row = -1,
     curs_row = 0,
     curs_col = 0,
     word_at_curs = "",
