@@ -165,7 +165,7 @@ M.dfs_and_stringify_matches = function(trie_node, pattern, all_matches)
   all_matches = all_matches or {}
 
   if trie_node.last_char then  
-    table.insert(all_matches, pattern .. " ")
+    table.insert(all_matches, pattern)
   end 
   
   for _, child in ipairs(trie_node.children) do 
