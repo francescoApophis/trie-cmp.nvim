@@ -77,6 +77,13 @@ M.handle_word_saving_key = function(c_bufnr, state)
 end 
 
 
+---@param key string 
+---@param state table
+--- called in handle_up_arrow_keys()
+M.prepare_match_insertion = function(c_bufnr, state)
+  vim.keymap.set('i', '<Enter>', function() M.insert_match(c_bufnr, state) end, {noremap = true, silent = true})
+  state.enter_key_remap_disabled = false
+end
 
 ---@param c_bufnr number
 ---@param state table
@@ -94,6 +101,7 @@ M.insert_match = function(c_bufnr, state)
   v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
   state.word_at_curs = ""
   state.valid_key_typed = false 
+  state.enter_key_remap_disabled = true
 end 
 
 
@@ -126,11 +134,6 @@ M.handle_valid_keys = function(key, c_bufnr, state)
   M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
 end 
 
----@param key string 
----@param state table
-M.prepare_match_insertion = function(c_bufnr, state)
-  vim.keymap.set('i', '<Enter>', function() M.insert_match(c_bufnr, state) end, {noremap = true, silent = true})
-end
 
 
 ---@param key string 
@@ -140,6 +143,7 @@ M.handle_ud_arrow_keys = function(key, c_bufnr, state)
   if state.match_row ~= -1 then
     v.nvim_buf_clear_namespace(c_bufnr, 0, state.match_row, -1) 
   end
+
   local curs_row, curs_col = unpack(v.nvim_win_get_cursor(0))
   state.match_row = M.get_new_match_row(key, state.match_row, c_bufnr)
   M.prepare_match_insertion(c_bufnr, state)
@@ -188,6 +192,15 @@ M.handle_normal_mode = function(key, c_bufnr, state)
   state.valid_key_typed = false 
   state.match_row = -1
   v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
+
+  if not state.enter_key_remap_disabled then 
+    for _, keymap in ipairs(v.nvim_get_keymap('i')) do
+      if keymap['lhs'] == '<CR>' and keymap['callback'] then
+        vim.keymap.set('i', '<Enter>', Keys.RK.enter, {noremap = true, silent = true})
+        state.enter_key_remap_disabled = true
+      end
+    end
+  end
 
   if key == "i" then
     local curs_col = v.nvim_win_get_cursor(0)[2]

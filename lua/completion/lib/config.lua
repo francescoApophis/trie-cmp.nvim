@@ -84,6 +84,7 @@ M.generate_completion_state = function()
     word_at_curs = "",
     trie_root = Trie:new_node(),
     valid_key_typed = false,
+    enter_key_remap_disabled = true,
   }
 end 
 
