@@ -24,9 +24,10 @@ M.valid_keys = "qwertyuiopèìasdfghjklòàzxcvbnmQWERTYUIOPÈASDFGHJKLÒÀZXCVB
 ---@type string[]
 M.word_saving_keys = {
   ".", "?", "+", "-", "/", "'", "\"","(", "*", "[", "]", "{", "}", "!", "%", "=", 
- M.RK.space,
- M.RK.tab,
- M.RK.escape,
+  M.RK.space,
+  M.RK.tab,
+  M.RK.escape,
+  M.RK.enter,
 }
 
 
