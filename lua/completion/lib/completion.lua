@@ -1,7 +1,6 @@
-local M = {}
-
 local v = vim.api
 
+local M = {}
 
 ---@param c_bufnr number 
 ---@param trie_root trie_node
@@ -49,43 +48,11 @@ end
 
 
 ---@param curs_col number 
----@param word_at_curs_len number 
----@return number match_row 
-M.get_word_start_col = function(curs_col, word_at_curs_len)
-  if curs_col - word_at_curs_len < 0 then 
-    return 0
-  elseif (curs_col - word_at_curs_len) == curs_col then  
-    return curs_col - #M.get_word_at_curs(curs_col) 
-  end 
-  return curs_col - word_at_curs_len 
-end 
-
-
----@param curs_col number 
 ---@return string word_at_curs
 M.get_word_at_curs = function(curs_col) 
   local curr_line_until_curs = string.sub(v.nvim_get_current_line(), 1, curs_col)
   return curr_line_until_curs:match("[%_*%w*]*$") or ""
 end 
-
-
-
----@param key string 
----@param curs_col number
----@return number curs_col 
-M.get_new_curs_col_for_arrows_lr = function(key, curs_col)
-  curs_col = (key == Keys.RK.left and curs_col - 1) or (key == Keys.RK.right and curs_col + 1)
-  if curs_col < 0 then 
-    return  0 
-  end 
-
-  if curs_col >= vim.fn.strlen(vim.fn.getline(".")) then 
-    return vim.fn.strlen(vim.fn.getline("."))
-  end 
-  
-  return curs_col 
-end 
-
 
 
 ---@param c_bufnr number 
@@ -94,7 +61,6 @@ M.handle_deletion = function(c_bufnr, state)
   state.word_at_curs = string.sub(state.word_at_curs, 1, #state.word_at_curs - 1)
   M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
   state.match_row = -1
-  state.curs_col = (state.curs_col - 1 < 0 and 0) or state.curs_col - 1 -- what it you delete and go line above?
 end 
 
 
@@ -117,14 +83,17 @@ end
 M.insert_match = function(c_bufnr, state)
   if not M.matches_exist_in_buf(c_bufnr) then
     Trie.add_word(state.trie_root, state.word_at_curs)
-    return curs_col
   end 
 
+  local curs_row, curs_col = unpack(v.nvim_win_get_cursor(0))
   local match = v.nvim_buf_get_lines(c_bufnr, state.match_row, state.match_row + 1, true)[1] 
   local match_suffix = match:sub(#state.word_at_curs + 1) .. ' '
-  v.nvim_buf_set_text(0, state.curs_row - 1, state.curs_col, state.curs_row - 1, state.curs_col, {match_suffix})
+  v.nvim_buf_set_text(0, curs_row - 1, curs_col, curs_row - 1, curs_col, {match_suffix})
   vim.keymap.set('i', '<Enter>', Keys.RK.enter, {noremap = true, silent = true})
-  v.nvim_win_set_cursor(0, {state.curs_row, state.curs_col + #match_suffix})
+  v.nvim_win_set_cursor(0, {curs_row, curs_col + #match_suffix})
+  v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
+  state.word_at_curs = ""
+  state.valid_key_typed = false 
 end 
 
 
@@ -155,10 +124,6 @@ M.handle_valid_keys = function(key, c_bufnr, state)
   state.valid_key_typed = true 
   state.match_row = -1
   M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
-
-  vim.schedule(function()
-    state.curs_row, state.curs_col = unpack(v.nvim_win_get_cursor(0)) 
-  end)
 end 
 
 ---@param key string 
@@ -172,16 +137,18 @@ end
 ---@param c_bufnr number
 ---@param state table
 M.handle_ud_arrow_keys = function(key, c_bufnr, state)
-  if (key == Keys.RK.down or key == Keys.RK.up) and Comp.matches_exist_in_buf(c_bufnr) then 
-    v.nvim_buf_clear_namespace(c_bufnr, 0, state.match_row + 1, -1) 
-    state.match_row = M.get_new_match_row(key, state.match_row, c_bufnr)
-    M.prepare_match_insertion(c_bufnr, state)
-
-    Conf.highlight_match(c_bufnr, state.match_row)
-    vim.schedule(function()
-      v.nvim_win_set_cursor(0, {state.curs_row, state.curs_col})
-    end)
+  if state.match_row ~= -1 then
+    v.nvim_buf_clear_namespace(c_bufnr, 0, state.match_row, -1) 
   end
+  local curs_row, curs_col = unpack(v.nvim_win_get_cursor(0))
+  state.match_row = M.get_new_match_row(key, state.match_row, c_bufnr)
+  M.prepare_match_insertion(c_bufnr, state)
+
+  vim.schedule(function()
+    v.nvim_win_set_cursor(0, {curs_row, curs_col})
+  end)
+
+  Conf.highlight_match(c_bufnr, state.match_row)
 end
 
 ---@param key string 
@@ -189,8 +156,9 @@ end
 ---@param state table
 M.handle_lr_arrow_keys = function(key, c_bufnr, state)
   if key == Keys.RK.left or key == Keys.RK.right then 
-    state.curs_col = M.get_new_curs_col_for_arrows_lr(key, state.curs_col)
-    state.word_at_curs = M.get_word_at_curs(state.curs_col)
+    local curs_col = v.nvim_win_get_cursor(0)[2]
+    curs_col = (key == Keys.RK.right and curs_col + 1) or curs_col - 1
+    state.word_at_curs = M.get_word_at_curs(curs_col)
     M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
   end
 end
@@ -222,13 +190,10 @@ M.handle_normal_mode = function(key, c_bufnr, state)
   v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
 
   if key == "i" then
-    state.word_at_curs = M.get_word_at_curs(state.curs_col)
+    local curs_col = v.nvim_win_get_cursor(0)[2]
+    state.word_at_curs = M.get_word_at_curs(curs_col)
     M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
   end
-
-  vim.schedule(function()
-    state.curs_row, state.curs_col = unpack(v.nvim_win_get_cursor(0))
-  end)
 end
 
 ---@param key string
