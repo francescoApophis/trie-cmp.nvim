@@ -42,9 +42,9 @@ end
 M.get_new_match_row = function(key, match_row, c_bufnr)
   local c_bufnr_len = v.nvim_buf_line_count(c_bufnr)
   if key == Keys.RK.down then 
-    return (match_row + 1 >= c_bufnr_len and 0) or match_row + 1
+    return (match_row + 1 >= c_bufnr_len and -1) or match_row + 1
   end 
-  return (match_row - 1 < 0 and c_bufnr_len - 1) or match_row - 1
+  return (match_row - 1 < -1 and c_bufnr_len - 1) or match_row - 1
 end 
 
 
@@ -93,7 +93,7 @@ end
 M.handle_deletion = function(c_bufnr, state)
   state.word_at_curs = string.sub(state.word_at_curs, 1, #state.word_at_curs - 1)
   M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
-  state.match_row = 0
+  state.match_row = -1
   state.curs_col = (state.curs_col - 1 < 0 and 0) or state.curs_col - 1 -- what it you delete and go line above?
 end 
 
@@ -106,7 +106,7 @@ M.handle_word_saving_key = function(c_bufnr, state)
     Trie.add_word(state.trie_root, state.word_at_curs)
   end 
   state.valid_key_typed = false
-  state.match_row = 0
+  state.match_row = -1 
   state.word_at_curs = ""
 end 
 
@@ -153,7 +153,7 @@ end
 M.handle_valid_keys = function(key, c_bufnr, state)
   state.word_at_curs = state.word_at_curs .. key
   state.valid_key_typed = true 
-  state.match_row = 0
+  state.match_row = -1
   M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
 
   vim.schedule(function()
@@ -173,10 +173,11 @@ end
 ---@param state table
 M.handle_ud_arrow_keys = function(key, c_bufnr, state)
   if (key == Keys.RK.down or key == Keys.RK.up) and Comp.matches_exist_in_buf(c_bufnr) then 
-    v.nvim_buf_clear_namespace(c_bufnr, 0, state.match_row, -1) 
+    v.nvim_buf_clear_namespace(c_bufnr, 0, state.match_row + 1, -1) 
     state.match_row = M.get_new_match_row(key, state.match_row, c_bufnr)
     M.prepare_match_insertion(c_bufnr, state)
 
+    Conf.highlight_match(c_bufnr, state.match_row)
     vim.schedule(function()
       v.nvim_win_set_cursor(0, {state.curs_row, state.curs_col})
     end)
@@ -217,7 +218,7 @@ end
 M.handle_normal_mode = function(key, c_bufnr, state)
   state.word_at_curs = ""
   state.valid_key_typed = false 
-  state.match_row = 0
+  state.match_row = -1
   v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
 
   if key == "i" then
@@ -243,7 +244,6 @@ M.completion = function(key, c_bufnr, state)
   elseif mode == "i" then 
     M.handle_insert_mode(key, c_bufnr, state)
   end
-  Conf.highlight_match(c_bufnr, state.match_row)
 end 
 
 return M 
