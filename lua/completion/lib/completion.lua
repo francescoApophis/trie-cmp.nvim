@@ -3,7 +3,7 @@ local M = {}
 ---@alias trie_node
 ---| '"char"' 
 ---| '"children"' 
----| '"last_char"' # Is the last character of the word
+---| '"last_char"' 
 
 
 ---@param c_bufnr number 
@@ -27,7 +27,7 @@ end
 
 ---@param trie_root trie_node
 M.save_words_from_opened_buf = function(trie_root)
-  new_buf_lines = vim.fn.readfile(vim.fn.bufname())
+  local new_buf_lines = vim.fn.readfile(vim.fn.bufname())
   if #new_buf_lines < 1 then return end  
 
   for i, line in ipairs(new_buf_lines) do 
@@ -37,25 +37,6 @@ M.save_words_from_opened_buf = function(trie_root)
   end 
 end 
 
-
-
-
--- Enter key still has default mapping, so the text after cursor  
--- will go to a newline after selecting a match. I don't wanna remap anything so 
--- I copy the curr line, delete the newline,
--- put the copied line back and set the cursor after inserted match  
----@param curs_row number 
----@param word_start_col number 
----@param selected_match_len number 
-M.undo_newline = function(curs_row, word_start_col, selected_match_len)
-  local curr_buf_line = vim.api.nvim_get_current_line()
-  vim.schedule(function()
-    vim.api.nvim_buf_set_lines(0, curs_row , curs_row + 1, true, {})
-    vim.api.nvim_buf_set_lines(0, curs_row - 1 , curs_row, true, {curr_buf_line}) 
-    vim.api.nvim_win_set_cursor(0, {curs_row, word_start_col + selected_match_len})
-  end) 
-end 
- 
 
 ---@param key string 
 ---@match_row number 
@@ -81,7 +62,8 @@ M.get_word_start_col = function(curs_col, word_at_curs_len)
   end 
   return curs_col - word_at_curs_len 
 end 
- 
+
+
 ---@param curs_col number 
 ---@return string word_at_curs
 M.get_word_at_curs = function(curs_col) 
@@ -136,18 +118,17 @@ end
 ---@param trie_root trie_node
 ---@param word_at_curs string 
 ---@param valid_key_typed boolean If the user has typed any new letters
+---@return nil 
 M.handle_word_saving_key = function(c_bufnr, trie_root, word_at_curs, valid_key_typed)
   -- avoid saving current word_at_curs after having entered Insert mode on a word 
-  -- and exiting right away with Escape, a word_saving_key
+  -- and exiting right away with Escape, which is a word_saving_key
   if not valid_key_typed then 
     return 
   end 
   if #word_at_curs > 1 then 
     Trie.add_word(trie_root, word_at_curs)
   end 
-  vim.api.nvim_buf_set_lines(c_bufnr, 0, -1, true, {}) 
 end 
-
 
 
 
@@ -157,17 +138,18 @@ end
 ---@param curs_row number 
 ---@param curs_col number 
 ---@param match_row number 
----@return number | nil New curs_col, which is the end of the inserted word
-M.handle_match_insertion = function(c_bufnr, trie_root, word_at_curs, curs_row, curs_col, match_row)
-  if not M.matches_exist_in_buf(c_bufnr) then 
+M.insert_match = function(c_bufnr, trie_root, word_at_curs, curs_row, curs_col, match_row)
+  if not M.matches_exist_in_buf(c_bufnr) then
     Trie.add_word(trie_root, word_at_curs)
-  else 
-    local selected_match = vim.api.nvim_buf_get_lines(c_bufnr, match_row, match_row + 1, true)[1] 
-    local word_start_col = M.get_word_start_col(curs_col, #word_at_curs)
-    vim.api.nvim_buf_set_text(0, curs_row - 1, word_start_col, curs_row - 1, curs_col, {selected_match}) 
-    M.undo_newline(curs_row, word_start_col, #selected_match)
-  end
-  vim.api.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})  
+    return curs_col
+  end 
+
+  local selected_match = vim.api.nvim_buf_get_lines(c_bufnr, match_row, match_row + 1, true)[1] 
+  local end_selected_match = selected_match:sub(#word_at_curs + 1) .. ' '
+  vim.api.nvim_buf_set_text(0, curs_row - 1, curs_col, curs_row - 1, curs_col, {end_selected_match})
+  vim.keymap.set('i', '<Enter>', Keys.RK.enter)
+  vim.api.nvim_win_set_cursor(0, {curs_row, curs_col + #end_selected_match})
+  -- return curs_col + #end_selected_match + 1
 end 
 
 
@@ -187,6 +169,8 @@ M.remove_deleted_words = function(trie_root)
     end 
   end) 
 end 
+
+
 
 ---@param key string
 ---@param c_bufnr number 
@@ -211,18 +195,20 @@ M.completion = function(key, c_bufnr, state)
       state.curs_row, state.curs_col = unpack(vim.api.nvim_win_get_cursor(0))
     end)
 
-
   elseif mode == "v" or mode == "V" and (key == "d" or key == "D") then 
     M.remove_deleted_words(state.trie_root)
-
 
   elseif mode == "i" then 
     if Keys.is_valid_key(key) then 
       state.word_at_curs = M.handle_valid_keys(key, c_bufnr, state.trie_root, state.word_at_curs, state.curs_col)
       state.valid_key_typed = true 
       state.match_row = 0
+      state.curs_col = state.curs_col + 1
+
       vim.schedule(function()
-        state.curs_row, state.curs_col = unpack(vim.api.nvim_win_get_cursor(0))
+        -- I'm won't just set curs_col += 1 since the user might have 
+        -- auto-break-line and I don't wanna deal with checking that
+        state.curs_row, state.curs_col = unpack(vim.api.nvim_win_get_cursor(0)) 
       end)
 
     elseif key == Keys.RK.backspace and #state.word_at_curs > 0 then
@@ -234,21 +220,15 @@ M.completion = function(key, c_bufnr, state)
       state.valid_key_typed = false
       state.match_row = 0
       state.word_at_curs = ""
-
-      if key == Keys.RK.escape then 
-        vim.schedule(function()
-          state.curs_row, state.curs_col = unpack(vim.api.nvim_win_get_cursor(0))
-        end)
-      end 
-
-    elseif key == Keys.RK.enter then 
-      M.handle_match_insertion(c_bufnr, state.trie_root, state.word_at_curs, state.curs_row, state.curs_col, state.match_row)
-      state.word_at_curs = ""
-      state.match_row = 0
        
     elseif (key == Keys.RK.down or key == Keys.RK.up) and Comp.matches_exist_in_buf(c_bufnr) then 
       vim.api.nvim_buf_clear_namespace(c_bufnr, 0, state.match_row, -1) -- delete previous highlight
       state.match_row = M.get_new_match_row(key, state.match_row, c_bufnr)
+
+      vim.keymap.set('i', '<Enter>', function()
+          M.insert_match(c_bufnr, state.trie_root, state.word_at_curs, state.curs_row, state.curs_col, state.match_row)
+      end, {noremap = true, silent = true})
+
       vim.schedule(function()
         vim.api.nvim_win_set_cursor(0, {state.curs_row, state.curs_col})
       end)
@@ -257,8 +237,9 @@ M.completion = function(key, c_bufnr, state)
       state.curs_col = M.get_new_curs_col_for_arrows_lr(key, state.curs_col)
       state.word_at_curs = M.get_word_at_curs(state.curs_col)
       M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
+      
     end 
-  end  
+  end
 
   Conf.highlight_match(c_bufnr, state.match_row)
 end 
