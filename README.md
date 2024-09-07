@@ -10,6 +10,7 @@ The completion suggest just words and it's context-less, so suggestion are
 displayed in no particular order.
 The experience basically mimics the built-in text-completion of Neovim.  
 
+
 ## Usage
 Use the commands ```:CompOn``` to start the completion, ```:CompOff``` to stop it .
 
@@ -24,6 +25,17 @@ Move through the suggestion with *<arrow-Up/Down>*. Press *Enter* to insert sugg
 buffer.
 
 ***At the moment there is no customization available***
+
+## WARNING
+If you have particular mappings for the \<Enter\> key in **INSERT** mode ***THE PLUGIN MIGHT CAUSE THOSE
+MAPPINGS TO NOT WORK***
+
+The plugin *temporarily* **REMAPS** the \<Enter\> key **ONLY WHEN IN INSERT MODE AFTER PRESSING 
+UP/DOWN ARROWS KEYS** to allow suggestion insertion in the buffer. It **MAPS IT BACK RIGHT AFTER INSERTING**  
+the selected suggestion (*after pressing \<Enter\>*).
+
+Unfortunately, I had to use this workaround because of a bug I couldn't solve 
+in the previous method I used.
 
 
 ## Installation 
