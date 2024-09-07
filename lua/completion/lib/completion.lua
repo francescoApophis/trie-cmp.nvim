@@ -66,11 +66,15 @@ end
 
 ---@param c_bufnr number 
 ---@param state table
-M.handle_word_saving_key = function(c_bufnr, state)
+M.handle_word_saving_key = function(key, c_bufnr, state)
+  if key == Keys.RK.enter and not state.enter_key_remap_disabled then
+    return
+  end
   -- avoid saving current word_at_curs after entering and exiting right away I-mode on a word 
   if  state.valid_key_typed and #state.word_at_curs > 1 then 
     Trie.add_word(state.trie_root, state.word_at_curs)
   end 
+  v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
   state.valid_key_typed = false
   state.match_row = -1 
   state.word_at_curs = ""
@@ -88,20 +92,16 @@ end
 ---@param c_bufnr number
 ---@param state table
 M.insert_match = function(c_bufnr, state)
-  if not M.matches_exist_in_buf(c_bufnr) then
-    Trie.add_word(state.trie_root, state.word_at_curs)
-  end 
-
   local curs_row, curs_col = unpack(v.nvim_win_get_cursor(0))
   local match = v.nvim_buf_get_lines(c_bufnr, state.match_row, state.match_row + 1, true)[1] 
   local match_suffix = match:sub(#state.word_at_curs + 1) .. ' '
   v.nvim_buf_set_text(0, curs_row - 1, curs_col, curs_row - 1, curs_col, {match_suffix})
   vim.keymap.set('i', '<Enter>', Keys.RK.enter, {noremap = true, silent = true})
+  state.enter_key_remap_disabled = true
   v.nvim_win_set_cursor(0, {curs_row, curs_col + #match_suffix})
   v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
   state.word_at_curs = ""
   state.valid_key_typed = false 
-  state.enter_key_remap_disabled = true
 end 
 
 
@@ -122,8 +122,6 @@ M.remove_deleted_words = function(trie_root)
 end 
 
 
-
-
 ---@param key string 
 ---@param c_bufnr number
 ---@param state table
@@ -133,7 +131,6 @@ M.handle_valid_keys = function(key, c_bufnr, state)
   state.match_row = -1
   M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
 end 
-
 
 
 ---@param key string 
@@ -176,7 +173,7 @@ M.handle_insert_mode = function(key, c_bufnr, state)
   elseif key == Keys.RK.backspace and #state.word_at_curs > 0 then
     M.handle_deletion(c_bufnr, state)
   elseif Keys.is_word_saving_key(key) then 
-    M.handle_word_saving_key(c_bufnr, state) 
+    M.handle_word_saving_key(key, c_bufnr, state) 
   elseif (key == Keys.RK.down or key == Keys.RK.up) and Comp.matches_exist_in_buf(c_bufnr) then 
     M.handle_ud_arrow_keys(key, c_bufnr, state)
   elseif key == Keys.RK.left or key == Keys.RK.right then 
