@@ -81,8 +81,6 @@ M.generate_completion_state = function()
   return {
     completion_on = false,
     match_row = -1,
-    curs_row = 0,
-    curs_col = 0,
     word_at_curs = "",
     trie_root = Trie:new_node(),
     valid_key_typed = false,
