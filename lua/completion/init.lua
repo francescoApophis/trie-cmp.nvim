@@ -73,6 +73,7 @@ M.stop_completion = function()
   end  
   state = Conf.generate_completion_state()
   vim.api.nvim_del_augroup_by_name(comp_group_name)
+  vim.keymap.set('i', '<Enter>', Keys.RK.enter, {noremap = true, silent = true})
 end 
 
 return M
