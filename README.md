@@ -37,6 +37,8 @@ the selected suggestion (*after pressing \<Enter\>*).
 Unfortunately, I had to use this workaround because of a bug I couldn't solve 
 in the previous method I used.
 
+## Requirements
+- Neovim >= 0.9.5 (the version I've built the plugin on)
 
 ## Installation 
 Keep in mind that I know nothing about plugin managers. ***I think*** (not sure)
