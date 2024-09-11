@@ -209,8 +209,9 @@ M.handle_normal_mode = function(key, c_bufnr, state)
     end
   end
 
-  if key == "i" then
+  if key == 'i' or key == 'a' then
     local curs_col = v.nvim_win_get_cursor(0)[2]
+    curs_col = (key == 'a' and curs_col + 1) or curs_col
     word_at_curs = M.get_word_at_curs(curs_col)
     M.search_and_show_matches(c_bufnr, state.trie_root, word_at_curs)
   end
