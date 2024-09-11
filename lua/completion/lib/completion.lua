@@ -133,7 +133,6 @@ end
 ---@param state table
 M.handle_valid_keys = function(key, c_bufnr, state)
   word_at_curs = M.get_word_at_curs(v.nvim_win_get_cursor(0)[2]) .. key
-  -- TODO: valid_key_typed is ass, char_key_typed might be better
   state.valid_key_typed = true 
   state.match_row = -1
   M.search_and_show_matches(c_bufnr, state.trie_root, word_at_curs)
@@ -144,6 +143,10 @@ end
 ---@param c_bufnr number
 ---@param state table
 M.handle_ud_arrow_keys = function(key, c_bufnr, state)
+  if not Comp.matches_exist_in_buf(c_bufnr) then
+    return
+  end
+
   if state.match_row ~= -1 then
     v.nvim_buf_clear_namespace(c_bufnr, 0, state.match_row, -1) 
   end
@@ -182,7 +185,7 @@ M.handle_insert_mode = function(key, c_bufnr, state)
     M.handle_deletion(c_bufnr, state)
   elseif Keys.is_word_saving_key(key) then 
     M.handle_word_saving_key(key, c_bufnr, state) 
-  elseif (key == Keys.RK.down or key == Keys.RK.up) and Comp.matches_exist_in_buf(c_bufnr) then 
+  elseif key == Keys.RK.down or key == Keys.RK.up then 
     M.handle_ud_arrow_keys(key, c_bufnr, state)
   elseif key == Keys.RK.left or key == Keys.RK.right then 
     M.handle_lr_arrow_keys(key, c_bufnr, state)
