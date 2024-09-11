@@ -38,6 +38,9 @@ M.add_word = function(trie_node, word, idx)
   idx = idx or 1
 
   if type(word) ~= "table" then 
+    if #word < 2 then 
+      return
+    end
     word = M.str_to_arr(word)
   end
 
