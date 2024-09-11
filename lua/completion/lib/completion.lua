@@ -58,8 +58,13 @@ end
 ---@param c_bufnr number 
 ---@param state table
 M.handle_deletion = function(c_bufnr, state)
-  state.word_at_curs = string.sub(state.word_at_curs, 1, #state.word_at_curs - 1)
-  M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
+  local word_at_curs = M.get_word_at_curs(v.nvim_win_get_cursor(0)[2])
+  if #word_at_curs < 1 then 
+    return
+  end
+
+  word_at_curs = word_at_curs:sub(1, #word_at_curs - 1)
+  M.search_and_show_matches(c_bufnr, state.trie_root, word_at_curs)
   state.match_row = -1
 end 
 
@@ -71,13 +76,13 @@ M.handle_word_saving_key = function(key, c_bufnr, state)
     return
   end
   -- avoid saving current word_at_curs after entering and exiting right away I-mode on a word 
-  if  state.valid_key_typed and #state.word_at_curs > 1 then 
-    Trie.add_word(state.trie_root, state.word_at_curs)
+  local word_at_curs = M.get_word_at_curs(v.nvim_win_get_cursor(0)[2])
+  if state.valid_key_typed then 
+    Trie.add_word(state.trie_root, word_at_curs)
   end 
   v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
   state.valid_key_typed = false
   state.match_row = -1 
-  state.word_at_curs = ""
 end 
 
 
@@ -94,13 +99,14 @@ end
 M.insert_match = function(c_bufnr, state)
   local curs_row, curs_col = unpack(v.nvim_win_get_cursor(0))
   local match = v.nvim_buf_get_lines(c_bufnr, state.match_row, state.match_row + 1, true)[1] 
-  local match_suffix = match:sub(#state.word_at_curs + 1) .. ' '
+  local word_at_curs = M.get_word_at_curs(curs_col)
+  local match_suffix = match:sub(#word_at_curs + 1) .. ' '
   v.nvim_buf_set_text(0, curs_row - 1, curs_col, curs_row - 1, curs_col, {match_suffix})
+
   vim.keymap.set('i', '<Enter>', Keys.RK.enter, {noremap = true, silent = true})
   state.enter_key_remap_disabled = true
   v.nvim_win_set_cursor(0, {curs_row, curs_col + #match_suffix})
   v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
-  state.word_at_curs = ""
   state.valid_key_typed = false 
 end 
 
@@ -126,10 +132,11 @@ end
 ---@param c_bufnr number
 ---@param state table
 M.handle_valid_keys = function(key, c_bufnr, state)
-  state.word_at_curs = state.word_at_curs .. key
+  word_at_curs = M.get_word_at_curs(v.nvim_win_get_cursor(0)[2]) .. key
+  -- TODO: valid_key_typed is ass, char_key_typed might be better
   state.valid_key_typed = true 
   state.match_row = -1
-  M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
+  M.search_and_show_matches(c_bufnr, state.trie_root, word_at_curs)
 end 
 
 
@@ -159,8 +166,9 @@ M.handle_lr_arrow_keys = function(key, c_bufnr, state)
   if key == Keys.RK.left or key == Keys.RK.right then 
     local curs_col = v.nvim_win_get_cursor(0)[2]
     curs_col = (key == Keys.RK.right and curs_col + 1) or curs_col - 1
-    state.word_at_curs = M.get_word_at_curs(curs_col)
-    M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
+    local word_at_curs = M.get_word_at_curs(curs_col)
+    state.match_row = -1
+    M.search_and_show_matches(c_bufnr, state.trie_root, word_at_curs)
   end
 end
 
@@ -170,7 +178,7 @@ end
 M.handle_insert_mode = function(key, c_bufnr, state)
   if Keys.is_valid_key(key) then 
     M.handle_valid_keys(key, c_bufnr, state)
-  elseif key == Keys.RK.backspace and #state.word_at_curs > 0 then
+  elseif key == Keys.RK.backspace then
     M.handle_deletion(c_bufnr, state)
   elseif Keys.is_word_saving_key(key) then 
     M.handle_word_saving_key(key, c_bufnr, state) 
@@ -185,7 +193,6 @@ end
 ---@param c_bufnr number
 ---@param state table
 M.handle_normal_mode = function(key, c_bufnr, state)
-  state.word_at_curs = ""
   state.valid_key_typed = false 
   state.match_row = -1
   v.nvim_buf_set_lines(c_bufnr, 0, -1, true, {})
@@ -201,8 +208,8 @@ M.handle_normal_mode = function(key, c_bufnr, state)
 
   if key == "i" then
     local curs_col = v.nvim_win_get_cursor(0)[2]
-    state.word_at_curs = M.get_word_at_curs(curs_col)
-    M.search_and_show_matches(c_bufnr, state.trie_root, state.word_at_curs)
+    word_at_curs = M.get_word_at_curs(curs_col)
+    M.search_and_show_matches(c_bufnr, state.trie_root, word_at_curs)
   end
 end
 
